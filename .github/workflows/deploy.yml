@@ -1,43 +1,33 @@
-name: Security Scan with Trivy
+name: Deploy static content to Pages
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  trivy-scan:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Run Trivy vulnerability scanner in filesystem mode
-        uses: aquasecurity/trivy-action@b3dafe507ffa004210975439a1e6156b8ebb3f50
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "table"
-          severity: "CRITICAL,HIGH"
-
-      - name: Build an image from Dockerfile
-        run: |
-          docker build -t my-python-app:${{ github.sha }} .
-
-      - name: Run Trivy vulnerability scanner in image mode
-        uses: aquasecurity/trivy-action@b3dafe507ffa004210975439a1e6156b8ebb3f50
-        with:
-          image-ref: "my-python-app:${{ github.sha }}"
-          format: "sarif"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH,MEDIUM"
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-results.sarif"
+          path: '.'
+      - name: Deploy to Github Pages
+        uses: actions/deploy-pages@v4
